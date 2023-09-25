@@ -1,23 +1,39 @@
+/* nodejs */
 import fs from "fs/promises";
 import path from "path";
-import { chromium } from "playwright";
-import { sleep } from "./src/sleep.ts";
+import { exit } from "process";
+
+/* Libs */
 // @ts-ignore
 import mpdParser from "mpd-parser";
+import { PromisePool } from "@supercharge/promise-pool";
+// @ts-ignore
+import commandLineArgs from "command-line-args";
+import { chromium } from "playwright";
+import axios from "axios";
 
-console.log("Chromium starting...");
+import { sleep } from "./src/sleep.ts";
+
+const argsDefinitions = [
+    { name: "url", alias: "u", type: String },
+    { name: "link", alias: "l", type: String },
+];
+
+function print(message: string) {
+    console.log(message);
+}
+
+///* Main *///
+
+let parsedManifest;
+
+print("Chromium starting...");
+
 const browser = await chromium.launch();
 const incognitoCtx = await browser.newContext();
 const page = await incognitoCtx.newPage();
 
-let parsedManifest;
-
-const promiseOfMpdJson = new Promise(async (res) => {
-    const dirPath = path.resolve(".content");
-    await fs.rm(path.resolve(".content"), {
-        recursive: true,
-        force: true,
-    });
+const populateManifestPromise = new Promise(async (res) => {
     page.on("response", async (response) => {
         const isJson =
             response.url().endsWith(".json") ||
@@ -25,46 +41,74 @@ const promiseOfMpdJson = new Promise(async (res) => {
         if (!isJson) {
             return;
         }
-        await fs.mkdir(dirPath, { recursive: true });
-        const jsonStr = await response.text();
-        const hasManifest = jsonStr.includes("application/dash+xml");
-        if (hasManifest) {
-            const jsonMpdPath = path.resolve(dirPath, "jsonWithManifest.json");
-            await fs.writeFile(jsonMpdPath, jsonStr);
-            const jsonParsed = await response.json();
-            const encodedMpd = jsonParsed["playlist"];
-            const decodedMpd = Buffer.from(encodedMpd, "base64").toString(
-                "utf-8"
-            );
-            const manifestPath = path.resolve(dirPath, "manifest.xml");
-            await fs.writeFile(manifestPath, decodedMpd);
-
-            //
-            parsedManifest = mpdParser.parse(decodedMpd);
-            await fs.writeFile(
-                path.resolve(".content/jsonManifest.json"),
-                JSON.stringify(parsedManifest)
-            );
-            res(undefined);
-        } else {
-            const filePath = path.resolve(
-                dirPath,
-                Date.now().toString() + ".json"
-            );
-            await fs.writeFile(filePath, jsonStr);
+        const jsonObj = await response.json();
+        const hasManifest = jsonObj["playlistType"] === "application/dash+xml";
+        if (!hasManifest) {
+            return;
         }
+        const decodedManifest = Buffer.from(
+            jsonObj["playlist"],
+            "base64"
+        ).toString("utf-8");
+        parsedManifest = mpdParser.parse(decodedManifest);
+        res(undefined);
+        return;
     });
 });
 
-console.log("Opening page...");
-await page.goto(
-    "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine"
-);
+/* cli args */
+const args = commandLineArgs(argsDefinitions);
+const url = args.link || args.url;
+/* if (!url) {
+    console.log("No valid url provided. Use `--link <url>` option.");
+    exit(0);
+} */
+
+print("Opening page...");
+
+// await page.goto(url);
+
+const devUrl =
+    "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine";
+await page.goto(devUrl);
+
 const playButton = await page.$(".vjs-big-play-button");
 playButton?.click();
-console.log("Downloading mpd manifest...");
-await promiseOfMpdJson;
-await browser.close();
-console.log("Manifest downloaded!");
 
-console.log(parsedManifest!.duration);
+print("Downloading mpd manifest...");
+
+await populateManifestPromise;
+
+print("Manifest obtained!");
+
+let videoSegs;
+let audioSegs =
+    parsedManifest!.mediaGroups.AUDIO.audio.eng.playlists[0].segments;
+
+//populate `videosegs` variable with 1080 segments array
+await new Promise((res) => {
+    for (const track of parsedManifest!.playlists) {
+        if (track.attributes.RESOLUTION.width === 1920) {
+            videoSegs = track.segments;
+            res(undefined);
+            return;
+        }
+    }
+});
+
+/* await page.evaluate(async () => {
+    return await fetch(
+        "https://epic-developer-community.qstv.on.epicgames.com/9266d334-661e-4311-ba7f-8481b051f4b5/"
+    )
+        .then((response) => response.blob())
+        .then((blob) => blob);
+}); */
+/* await PromisePool.for(videoSegs!).process(async (videoSeg, index, pool) => {
+    axios.
+}); */
+
+print("Shutting down chromium...");
+
+await page.close();
+await incognitoCtx.close();
+await browser.close();
