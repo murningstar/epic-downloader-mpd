@@ -19,7 +19,7 @@ const argsDefinitions = [
     { name: "link", alias: "l", type: String },
 ];
 
-function print(message: string) {
+function print(message: string | number) {
     console.log(message);
 }
 
@@ -85,16 +85,60 @@ let videoSegs;
 let audioSegs =
     parsedManifest!.mediaGroups.AUDIO.audio.eng.playlists[0].segments;
 
-//populate `videosegs` variable with 1080 segments array
-await new Promise((res) => {
+const populateVideoSegs1080 = new Promise((res) => {
     for (const track of parsedManifest!.playlists) {
-        if (track.attributes.RESOLUTION.width === 1920) {
+        if (track.attributes.RESOLUTION.height === 1080) {
             videoSegs = track.segments;
             res(undefined);
             return;
         }
     }
 });
+await populateVideoSegs1080;
+
+console.log("Output directory created.");
+
+await fs.mkdir(path.resolve(".output"));
+
+console.log("Downloading segments...");
+
+await PromisePool.for((videoSegs! as []).slice(0, 20)).process(
+    // job for each segment
+    async (videoSeg: any, index, pool) => {
+        const arrayedBuffer = await page.evaluate((url) => {
+            return fetch(url)
+                .then((response) => response.arrayBuffer())
+                .then((buffer) => Array.from(new Uint8Array(buffer)));
+        }, videoSeg.resolvedUri);
+
+        const buffer = Buffer.from(arrayedBuffer);
+        await fs.writeFile(path.resolve(`.output/${videoSeg.uri}`), buffer);
+        print("segment #" + index + "saved");
+    }
+);
+
+
+
+/* await Promise.allSettled(
+    (videoSegs! as []).slice(0, 20).map((segment: any, i) => {
+        return Promise.resolve()
+            .then(() => {
+                return page.evaluate((url) => {
+                    return fetch(url)
+                        .then((response) => response.arrayBuffer())
+                        .then((buffer) => Array.from(new Uint8Array(buffer)));
+                }, segment.resolvedUri);
+            })
+            .then((arrayedBuffer) => {
+                return fs.writeFile(
+                    path.resolve(`.output/${segment.uri}`),
+                    Buffer.from(arrayedBuffer)
+                );
+            });
+    })
+); */
+
+console.log("Done!");
 
 /* await page.evaluate(async () => {
     return await fetch(
@@ -102,9 +146,6 @@ await new Promise((res) => {
     )
         .then((response) => response.blob())
         .then((blob) => blob);
-}); */
-/* await PromisePool.for(videoSegs!).process(async (videoSeg, index, pool) => {
-    axios.
 }); */
 
 print("Shutting down chromium...");
