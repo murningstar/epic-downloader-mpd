@@ -111,20 +111,25 @@ const workerJS = await afs.readFile(path.resolve("./src/worker.ts"), {
     encoding: "utf-8",
 });
 
+page.on('worker',(worker) => {
+    console.log('worker created');
+})
 /* Регистрация воркеров */
 await page.evaluate(
     ([workerJS]) => {
         const workerCount = navigator.hardwareConcurrency - 1;
-        for (let i = 0; i < workerCount; i++) {}
-        new Worker(
-            URL.createObjectURL(
-                new Blob([workerJS], { type: "application/javascript" })
-            )
-        );
+        for (let i = 0; i < workerCount; i++) {
+            new Worker(
+                URL.createObjectURL(
+                    new Blob([workerJS], { type: "application/javascript" })
+                )
+            );
+        }
     },
     [workerJS]
 );
-
+await sleep(3)
+console.log(page.workers().map(worker=>worker.url()));
 // const buffersArr = await page.evaluate(async (segUrls) => {
 //     const promises = segUrls.map((url) => fetch(url));
 //     const responses = await Promise.all(promises);
