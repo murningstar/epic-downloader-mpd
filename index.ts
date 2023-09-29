@@ -1,7 +1,8 @@
 /* nodejs */
-import fs from "fs/promises";
+import afs from "fs/promises";
+import fs from "fs";
 import path from "path";
-import { exit } from "process";
+import { exit, kill } from "process";
 
 /* Libs */
 // @ts-ignore
@@ -58,22 +59,22 @@ const populateManifestPromise = new Promise(async (res) => {
 
 /* cli args */
 const args = commandLineArgs(argsDefinitions);
-const url = args.link || args.url;
-/* if (!url) {
+const url =
+    args.link ||
+    args.url ||
+    // TODO: удалить hardcoded url
+    "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine";
+if (!url) {
     console.log("No valid url provided. Use `--link <url>` option.");
     exit(0);
-} */
+}
 
 print("Opening page...");
 
-// await page.goto(url);
+await page.goto(url);
 
-const devUrl =
-    "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine";
-await page.goto(devUrl);
-
-const playButton = await page.$(".vjs-big-play-button");
-playButton?.click();
+// const playButton = await page.$(".vjs-big-play-button");
+// playButton?.click();
 
 print("Downloading mpd manifest...");
 
@@ -81,28 +82,59 @@ await populateManifestPromise;
 
 print("Manifest obtained!");
 
-let videoSegs;
-let audioSegs =
+let videoSegsData = (parsedManifest!.playlists as any[]).filter((track) => {
+    return track.attributes.RESOLUTION.height === 1080;
+})[0];
+let audioSegsData =
     parsedManifest!.mediaGroups.AUDIO.audio.eng.playlists[0].segments;
 
-const populateVideoSegs1080 = new Promise((res) => {
-    for (const track of parsedManifest!.playlists) {
-        if (track.attributes.RESOLUTION.height === 1080) {
-            videoSegs = track.segments;
-            res(undefined);
-            return;
-        }
-    }
+const segmentsUrls1080:string[] = videoSegsData!.segments.map(
+    (seg1080Data: any) => seg1080Data.resolvedUri
+);
+
+await afs.mkdir(path.resolve(".output"), { recursive: true });
+
+const folderName = new URL(url).pathname.split("/").at(-1);
+
+await afs.mkdir(path.resolve(`.output/${folderName}`), { recursive: true });
+
+print(`"./output/${folderName}/" directory created.`);
+
+print("Downloading segments...");
+
+const coresForWorkers = await page.evaluate(() => {
+    return navigator.hardwareConcurrency - 1;
 });
-await populateVideoSegs1080;
 
-console.log("Output directory created.");
+/* Надо проверить 2 варианта
+1) Мейн фетчит и отправляет воркерам на ser/des
+2) Воркер сам фетчит и сердесит, возвращая только результат */
 
-await fs.mkdir(path.resolve(".output"));
+await page.evaluate((cores) => {
+    new Worker()
+},cores)
 
-console.log("Downloading segments...");
+// const buffersArr = await page.evaluate(async (segUrls) => {
+//     const promises = segUrls.map((url) => fetch(url));
+//     const responses = await Promise.all(promises);
+//     const returnArr = [];
+//     for (let i = 0; i < responses.length; i++) {
+//         const arraybuffer = await responses[i].arrayBuffer();
+//         const serzble = Array.from(new Uint8Array(arraybuffer));
+//         returnArr.push(serzble);
+//     }
+//     return returnArr;
+// }, segmentsUrls1080?.slice(0, 10));
 
-await PromisePool.for((videoSegs! as []).slice(0, 20)).process(
+// console.log("obtained buffers from chromium");
+
+// buffersArr.forEach((file, i) => {
+//     console.log(`file #${i + 1}`, new Date().getSeconds());
+//     fs.writeFileSync(`.output/${folderName}/${i + 1}.m4s`, Buffer.from(file));
+// });
+
+// await sleep(10)
+/* await PromisePool.for((videoSegsData! as []).slice(0, 20)).process(
     // job for each segment
     async (videoSeg: any, index, pool) => {
         const arrayedBuffer = await page.evaluate((url) => {
@@ -115,12 +147,12 @@ await PromisePool.for((videoSegs! as []).slice(0, 20)).process(
         await fs.writeFile(path.resolve(`.output/${videoSeg.uri}`), buffer);
         print("segment #" + index + "saved");
     }
-);
+); */
 
 
 
 /* await Promise.allSettled(
-    (videoSegs! as []).slice(0, 20).map((segment: any, i) => {
+    (videoSegsData! as []).slice(0, 20).map((segment: any, i) => {
         return Promise.resolve()
             .then(() => {
                 return page.evaluate((url) => {
@@ -153,3 +185,5 @@ print("Shutting down chromium...");
 await page.close();
 await incognitoCtx.close();
 await browser.close();
+
+kill(0)

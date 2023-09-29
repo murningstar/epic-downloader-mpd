@@ -6,4 +6,5 @@ node_modules/
 
 #Project
 .content/
+.output/
 example.json
