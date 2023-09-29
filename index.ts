@@ -13,6 +13,7 @@ import commandLineArgs from "command-line-args";
 import { chromium } from "playwright";
 import axios from "axios";
 
+/* Mine */
 import { sleep } from "./src/sleep.ts";
 
 const argsDefinitions = [
@@ -88,7 +89,7 @@ let videoSegsData = (parsedManifest!.playlists as any[]).filter((track) => {
 let audioSegsData =
     parsedManifest!.mediaGroups.AUDIO.audio.eng.playlists[0].segments;
 
-const segmentsUrls1080:string[] = videoSegsData!.segments.map(
+const segmentsUrls1080: string[] = videoSegsData!.segments.map(
     (seg1080Data: any) => seg1080Data.resolvedUri
 );
 
@@ -102,17 +103,27 @@ print(`"./output/${folderName}/" directory created.`);
 
 print("Downloading segments...");
 
-const coresForWorkers = await page.evaluate(() => {
-    return navigator.hardwareConcurrency - 1;
-});
-
 /* Надо проверить 2 варианта
 1) Мейн фетчит и отправляет воркерам на ser/des
 2) Воркер сам фетчит и сердесит, возвращая только результат */
 
-await page.evaluate((cores) => {
-    new Worker()
-},cores)
+const workerJS = await afs.readFile(path.resolve("./src/worker.ts"), {
+    encoding: "utf-8",
+});
+
+/* Регистрация воркеров */
+await page.evaluate(
+    ([workerJS]) => {
+        const workerCount = navigator.hardwareConcurrency - 1;
+        for (let i = 0; i < workerCount; i++) {}
+        new Worker(
+            URL.createObjectURL(
+                new Blob([workerJS], { type: "application/javascript" })
+            )
+        );
+    },
+    [workerJS]
+);
 
 // const buffersArr = await page.evaluate(async (segUrls) => {
 //     const promises = segUrls.map((url) => fetch(url));
@@ -149,8 +160,6 @@ await page.evaluate((cores) => {
     }
 ); */
 
-
-
 /* await Promise.allSettled(
     (videoSegsData! as []).slice(0, 20).map((segment: any, i) => {
         return Promise.resolve()
@@ -172,18 +181,10 @@ await page.evaluate((cores) => {
 
 console.log("Done!");
 
-/* await page.evaluate(async () => {
-    return await fetch(
-        "https://epic-developer-community.qstv.on.epicgames.com/9266d334-661e-4311-ba7f-8481b051f4b5/"
-    )
-        .then((response) => response.blob())
-        .then((blob) => blob);
-}); */
-
 print("Shutting down chromium...");
 
 await page.close();
 await incognitoCtx.close();
 await browser.close();
 
-kill(0)
+kill(0);
