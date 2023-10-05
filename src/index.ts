@@ -11,13 +11,9 @@ import { PromisePool } from "@supercharge/promise-pool";
 // @ts-ignore
 import commandLineArgs from "command-line-args";
 import { chromium } from "playwright";
-import axios from "axios";
 import fetch from "node-fetch";
 // @ts-ignore
 import shell from "shelljs";
-
-/* Mine */
-import { sleep } from "./sleep.js";
 
 const argsDefinitions = [
     { name: "url", alias: "u", type: String },
@@ -223,7 +219,9 @@ shell.exec(
 // Remove temp
 shell.exec(`rm tempVideo.mp4 tempAudio.mp4 && rm -rf .output/${folderName}/`);
 // OUTPUT RESULT
-shell.exec(`ffmpeg -i concatedVideo.mp4 -i concatedAudio.mp4 -c copy .output/${folderName}.mp4`);
+shell.exec(
+    `ffmpeg -i concatedVideo.mp4 -i concatedAudio.mp4 -c copy .output/${folderName}.mp4`
+);
 // Remove temp
 shell.exec(`rm concatedVideo.mp4 concatedAudio.mp4`);
 
