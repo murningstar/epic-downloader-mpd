@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# --output "/mnt/d/.epicOutput/test.mp4" \
+
+# Start the TypeScript script
+ts-node index.ts
+
+echo "tsnode done"
+
+
+# Start the HTTP server
+http-server -p 3000 /.output/ &
+
+
+# Store the HTTP server's process ID
+SERVER_PID=$!
+
+echo "Started HTTP server"
+
+# Allow some time for the server to start up
+sleep 3
+
+# Use youtube-dl to download the DASH stream
+youtube-dl \
+    --output ".output/test.mp4" \
+    --cookies-from-browser "Chrome" \
+    --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/118.0" \
+    --add-header "Accept:*/*" \
+    --add-header "Accept-Language:ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3" \
+    --add-header "Accept-Encoding:gzip, deflate, br" \
+    --add-header "Origin:https://dev.epicgames.com" \
+    --add-header "DNT:1" \
+    --add-header "Connection:keep-alive" \
+    --add-header "Referer:https://dev.epicgames.com/" \
+    --add-header "Sec-Fetch-Dest:empty" \
+    --add-header "Sec-Fetch-Mode:cors" \
+    --add-header "Sec-Fetch-Site:same-site" \
+    --add-header "Pragma:no-cache" \
+    --add-header "Cache-Control:no-cache" \
+    --add-header "TE:trailers" \
+    --verbose \
+    "http://localhost:3000/manifest.xml"
+
+# Terminate the http-server process
+kill $SERVER_PID
