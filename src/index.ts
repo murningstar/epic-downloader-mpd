@@ -25,10 +25,20 @@ function print(message: string | number) {
 
 ///* Main *///
 
-const args = commandLineArgs(argsDefinitions);
+/* Cli args */
+let args;
+const hint =
+    'Provide URL of the page with video via `--link <url>` option. \
+    \nExample: "index.js --link https://dev.epicgames.com/page-with-video"';
+try {
+    args = commandLineArgs(argsDefinitions);
+} catch (e) {
+    print(hint);
+    exit(1);
+}
 const url: string = args.link || args.url;
 if (!url) {
-    print("Provide URL of the page with video via `--link <url>` option.");
+    print(hint);
     exit(1);
 }
 if (!url.includes("https://dev.epicgames.com/")) {
