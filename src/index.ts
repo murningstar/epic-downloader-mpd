@@ -191,7 +191,7 @@ print("Concatenating...");
 // Concat video- init&segments into tempVideo.mp4
 shell.exec(
     `cat .output/${folderName}/init1080.mp4 > tempVideo.mp4
-    for i in $(seq 1 ${50}); do \
+    for i in $(seq 1 ${segmentsUrls1080.length}); do \
         cat ".output/${folderName}/$i-video.m4s" >> tempVideo.mp4
         done`
 );
@@ -202,7 +202,7 @@ shell.exec(
 // Concat audio- init&segments into tempAudio.mp4
 shell.exec(
     `cat .output/${folderName}/initAudio.mp4 > tempAudio.mp4
-    for i in $(seq 1 ${50}); do \
+    for i in $(seq 1 ${segmentsUrlsAudio.length}); do \
         cat ".output/${folderName}/$i-audio.m4s" >> tempAudio.mp4
         done`
 );
