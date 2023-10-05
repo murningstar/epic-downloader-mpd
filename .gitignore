@@ -5,6 +5,8 @@ node_modules/
 /playwright/.cache/
 
 #Project
-.content/
 .output/
+
+#Dev
+.content/
 example.json
