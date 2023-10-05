@@ -152,13 +152,13 @@ await fetch(initUrlAudio, { headers })
     .then((arrayBuffer) => Buffer.from(new Uint8Array(arrayBuffer)))
     .then((buffer) => afs.writeFile(fullPath + "/initAudio.mp4", buffer));
 await new PromisePool()
-    .for(segmentsUrls1080.slice(0, 50))
+    .for(segmentsUrls1080)
     .withConcurrency(50)
     .process(async (url, ix) => {
     await fetchAndPersist(url, ix + 1);
 });
 await new PromisePool()
-    .for(segmentsUrlsAudio.slice(0, 50))
+    .for(segmentsUrlsAudio)
     .withConcurrency(50)
     .process(async (url, ix) => {
     await fetchAndPersist(url, ix + 1, true);
@@ -167,14 +167,14 @@ print("Segments downloaded.");
 print("Concatenating...");
 // Concat video- init&segments into tempVideo.mp4
 shell.exec(`cat .output/${folderName}/init1080.mp4 > tempVideo.mp4
-    for i in $(seq 1 ${50}); do \
+    for i in $(seq 1 ${segmentsUrls1080.length}); do \
         cat ".output/${folderName}/$i-video.m4s" >> tempVideo.mp4
         done`);
 // Refragmentation of video
 shell.exec(`ffmpeg -i tempVideo.mp4 -codec copy -movflags +faststart concatedVideo.mp4`);
 // Concat audio- init&segments into tempAudio.mp4
 shell.exec(`cat .output/${folderName}/initAudio.mp4 > tempAudio.mp4
-    for i in $(seq 1 ${50}); do \
+    for i in $(seq 1 ${segmentsUrlsAudio.length}); do \
         cat ".output/${folderName}/$i-audio.m4s" >> tempAudio.mp4
         done`);
 // Refragmentation of audio

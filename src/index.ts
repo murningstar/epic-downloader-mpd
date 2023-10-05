@@ -172,13 +172,13 @@ await fetch(initUrlAudio, { headers })
     .then((arrayBuffer) => Buffer.from(new Uint8Array(arrayBuffer)))
     .then((buffer) => afs.writeFile(fullPath + "/initAudio.mp4", buffer));
 await new PromisePool()
-    .for(segmentsUrls1080.slice(0, 50))
+    .for(segmentsUrls1080)
     .withConcurrency(50)
     .process(async (url, ix) => {
         await fetchAndPersist(url, ix + 1);
     });
 await new PromisePool()
-    .for(segmentsUrlsAudio.slice(0, 50))
+    .for(segmentsUrlsAudio)
     .withConcurrency(50)
     .process(async (url, ix) => {
         await fetchAndPersist(url, ix + 1, true);
