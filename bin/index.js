@@ -13,10 +13,15 @@ import mpdParser from "mpd-parser";
 import commandLineArgs from "command-line-args";
 // @ts-ignore
 import shell from "shelljs";
+// "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine";
 const argsDefinitions = [
     { name: "url", alias: "u", type: String },
     { name: "link", alias: "l", type: String },
 ];
+function print(message) {
+    console.log(message);
+}
+///* Main *///
 const args = commandLineArgs(argsDefinitions);
 const url = args.link || args.url;
 if (!url) {
@@ -27,11 +32,6 @@ if (!url.includes("https://dev.epicgames.com/")) {
     print("Page url needed");
     exit(1);
 }
-// "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine";
-function print(message) {
-    console.log(message);
-}
-///* Main *///
 /* Obtain manifest via chromium */
 let parsedManifest;
 print("Chromium starting...");
@@ -70,16 +70,16 @@ print("Shutting down chromium...");
 await page.close();
 await incognitoCtx.close();
 await browser.close();
-let videoSegsData = parsedManifest.playlists.filter((track) => {
+const videoSegsData = parsedManifest.playlists.filter((track) => {
     return track.attributes.RESOLUTION.height === 1080;
 })[0];
-let audioSegsData = parsedManifest.mediaGroups.AUDIO.audio.eng.playlists[0];
+const audioSegsData = parsedManifest.mediaGroups.AUDIO.audio.eng.playlists[0];
 const initUrl1080 = videoSegsData.segments[0].map.resolvedUri;
 const initUrlAudio = audioSegsData.segments[0].map.resolvedUri;
 const segmentsUrls1080 = videoSegsData.segments.map((seg1080Data) => seg1080Data.resolvedUri);
 const segmentsUrlsAudio = audioSegsData.segments.map((segAudioData) => segAudioData.resolvedUri);
+/* Create output directory */
 const outputFolder = ".output";
-await afs.mkdir(path.resolve(outputFolder), { recursive: true });
 const folderName = new URL(url).pathname.split("/").at(-1);
 const fullPath = outputFolder + "/" + folderName;
 await afs.mkdir(path.resolve(fullPath), { recursive: true });
@@ -175,4 +175,6 @@ shell.exec(`rm tempVideo.mp4 tempAudio.mp4 && rm -rf .output/${folderName}/`);
 shell.exec(`ffmpeg -i concatedVideo.mp4 -i concatedAudio.mp4 -c copy .output/${folderName}.mp4`);
 // Remove temp
 shell.exec(`rm concatedVideo.mp4 concatedAudio.mp4`);
+print("Done!");
+print("Shutting down...");
 kill(0);

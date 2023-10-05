@@ -3,37 +3,45 @@ import afs from "fs/promises";
 import fs from "fs";
 import path from "path";
 import { exit, kill } from "process";
-
 /* Libs */
-// @ts-ignore
-import mpdParser from "mpd-parser";
 import { PromisePool } from "@supercharge/promise-pool";
-// @ts-ignore
-import commandLineArgs from "command-line-args";
 import { chromium } from "playwright";
 import fetch from "node-fetch";
 // @ts-ignore
+import mpdParser from "mpd-parser";
+// @ts-ignore
+import commandLineArgs from "command-line-args";
+// @ts-ignore
 import shell from "shelljs";
 
+// "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine";
 const argsDefinitions = [
     { name: "url", alias: "u", type: String },
     { name: "link", alias: "l", type: String },
 ];
-
 function print(message: string | number) {
     console.log(message);
 }
 
 ///* Main *///
 
+const args = commandLineArgs(argsDefinitions);
+const url: string = args.link || args.url;
+if (!url) {
+    print("Provide URL of the page with video via `--link <url>` option.");
+    exit(1);
+}
+if (!url.includes("https://dev.epicgames.com/")) {
+    print("Page url needed");
+    exit(1);
+}
+
+/* Obtain manifest via chromium */
 let parsedManifest;
-
 print("Chromium starting...");
-
 const browser = await chromium.launch();
 const incognitoCtx = await browser.newContext();
 const page = await incognitoCtx.newPage();
-
 const populateManifestPromise = new Promise(async (res) => {
     page.on("response", async (response) => {
         const isJson =
@@ -57,44 +65,24 @@ const populateManifestPromise = new Promise(async (res) => {
         return;
     });
 });
-
-/* cli args */
-const args = commandLineArgs(argsDefinitions);
-const url =
-    args.link ||
-    args.url ||
-    // TODO: удалить hardcoded url
-    "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine";
-if (!url) {
-    print("No valid url provided. Use `--link <url>` option.");
-    exit(0);
-}
-
 print("Opening page...");
-
 await page.goto(url);
-
 const playButton = await page.$(".vjs-big-play-button");
 playButton?.click();
 const controlButton = await page.$("vjs-play-control");
 controlButton?.click();
-
 print("Downloading mpd manifest...");
-
 await populateManifestPromise;
-
 print("Manifest obtained!");
-
 print("Shutting down chromium...");
-
 await page.close();
 await incognitoCtx.close();
 await browser.close();
 
-let videoSegsData = (parsedManifest!.playlists as any[]).filter((track) => {
+const videoSegsData = (parsedManifest!.playlists as any[]).filter((track) => {
     return track.attributes.RESOLUTION.height === 1080;
 })[0];
-let audioSegsData = parsedManifest!.mediaGroups.AUDIO.audio.eng.playlists[0];
+const audioSegsData = parsedManifest!.mediaGroups.AUDIO.audio.eng.playlists[0];
 const initUrl1080: string = videoSegsData.segments[0].map.resolvedUri;
 const initUrlAudio: string = audioSegsData.segments[0].map.resolvedUri;
 const segmentsUrls1080: string[] = videoSegsData!.segments.map(
@@ -104,15 +92,11 @@ const segmentsUrlsAudio: string[] = audioSegsData.segments.map(
     (segAudioData: any) => segAudioData.resolvedUri
 );
 
+/* Create output directory */
 const outputFolder = ".output";
-
-await afs.mkdir(path.resolve(outputFolder), { recursive: true });
-
 const folderName = new URL(url).pathname.split("/").at(-1);
 const fullPath = outputFolder + "/" + folderName;
-
 await afs.mkdir(path.resolve(fullPath), { recursive: true });
-
 print(`"${fullPath}/" directory created.`);
 
 const headers = {
@@ -168,7 +152,6 @@ async function fetchAndPersist(
     }
     return;
 }
-
 print("Downloading segments...");
 await fetch(initUrl1080, { headers })
     .then((response) => response.arrayBuffer())
@@ -190,6 +173,7 @@ await new PromisePool()
     .process(async (url, ix) => {
         await fetchAndPersist(url, ix + 1, true);
     });
+
 print("Segments downloaded.");
 
 print("Concatenating...");
@@ -224,5 +208,8 @@ shell.exec(
 );
 // Remove temp
 shell.exec(`rm concatedVideo.mp4 concatedAudio.mp4`);
+
+print("Done!");
+print("Shutting down...");
 
 kill(0);
