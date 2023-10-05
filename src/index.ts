@@ -218,7 +218,7 @@ shell.exec(
 );
 // Remove temp
 shell.exec(`rm tempVideo.mp4 tempAudio.mp4 && rm -rf .output/${folderName}/`);
-// OUTPUT RESULT
+// Mux tracks
 shell.exec(
     `ffmpeg -i concatedVideo.mp4 -i concatedAudio.mp4 -c copy .output/${folderName}.mp4`
 );
