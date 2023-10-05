@@ -10,12 +10,19 @@
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.38.1",
-    "@types/node": "^20.6.3"
+    "@types/node": "^20.6.3",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
   },
   "dependencies": {
     "@supercharge/promise-pool": "^3.0.0",
+    "@types/node-fetch": "^2.6.6",
+    "@types/shelljs": "^0.8.13",
     "axios": "^1.5.0",
     "command-line-args": "^5.2.1",
-    "mpd-parser": "^1.2.2"
+    "http-server": "^14.1.1",
+    "mpd-parser": "^1.2.2",
+    "node-fetch": "^3.3.2",
+    "shelljs": "^0.8.5"
   }
 }
