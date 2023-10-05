@@ -4,23 +4,35 @@ import fs from "fs";
 import path from "path";
 import { exit, kill } from "process";
 /* Libs */
-// @ts-ignore
-import mpdParser from "mpd-parser";
 import { PromisePool } from "@supercharge/promise-pool";
-// @ts-ignore
-import commandLineArgs from "command-line-args";
 import { chromium } from "playwright";
 import fetch from "node-fetch";
+// @ts-ignore
+import mpdParser from "mpd-parser";
+// @ts-ignore
+import commandLineArgs from "command-line-args";
 // @ts-ignore
 import shell from "shelljs";
 const argsDefinitions = [
     { name: "url", alias: "u", type: String },
     { name: "link", alias: "l", type: String },
 ];
+const args = commandLineArgs(argsDefinitions);
+const url = args.link || args.url;
+if (!url) {
+    print("Provide URL of the page with video via `--link <url>` option.");
+    exit(1);
+}
+if (!url.includes("https://dev.epicgames.com/")) {
+    print("Page url needed");
+    exit(1);
+}
+// "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine";
 function print(message) {
     console.log(message);
 }
 ///* Main *///
+/* Obtain manifest via chromium */
 let parsedManifest;
 print("Chromium starting...");
 const browser = await chromium.launch();
@@ -45,16 +57,6 @@ const populateManifestPromise = new Promise(async (res) => {
         return;
     });
 });
-/* cli args */
-const args = commandLineArgs(argsDefinitions);
-const url = args.link ||
-    args.url ||
-    // TODO: удалить hardcoded url
-    "https://dev.epicgames.com/community/learning/courses/yvZ/unreal-engine-animation-fellowship-week-1/vvlw/transitioning-from-legacy-production-to-unreal-engine";
-if (!url) {
-    print("No valid url provided. Use `--link <url>` option.");
-    exit(0);
-}
 print("Opening page...");
 await page.goto(url);
 const playButton = await page.$(".vjs-big-play-button");
@@ -167,7 +169,10 @@ shell.exec(`cat .output/${folderName}/initAudio.mp4 > tempAudio.mp4
         done`);
 // Refragmentation of audio
 shell.exec(`ffmpeg -i tempAudio.mp4 -codec copy -movflags +faststart concatedAudio.mp4`);
-// Remove temp files
+// Remove temp
 shell.exec(`rm tempVideo.mp4 tempAudio.mp4 && rm -rf .output/${folderName}/`);
+// Mux tracks
 shell.exec(`ffmpeg -i concatedVideo.mp4 -i concatedAudio.mp4 -c copy .output/${folderName}.mp4`);
+// Remove temp
+shell.exec(`rm concatedVideo.mp4 concatedAudio.mp4`);
 kill(0);
