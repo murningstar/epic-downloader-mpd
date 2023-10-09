@@ -6,7 +6,8 @@ import { exit, kill } from "process";
 /* Libs */
 import { PromisePool } from "@supercharge/promise-pool";
 import { chromium } from "playwright";
-import fetch from "node-fetch";
+// @ts-ignore
+import fetch from "node-fetch-retry";
 // @ts-ignore
 import mpdParser from "mpd-parser";
 // @ts-ignore
@@ -93,7 +94,7 @@ const outputFolder = ".output";
 const folderName = new URL(url).pathname.split("/").at(-1);
 const fullPath = outputFolder + "/" + folderName;
 await afs.mkdir(path.resolve(fullPath), { recursive: true });
-print(`"${fullPath}/" directory created.`);
+print(`Created temp output directory: "${fullPath}/"`);
 const headers = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
     Accept: "*/*",
@@ -118,10 +119,20 @@ async function fetchAndPersist(url, indexForFileName, isAudio) {
     const abortController = new AbortController();
     try {
         await new Promise(async (res, rej) => {
-            const response = await fetch(url, {
-                headers,
-                signal: abortController.signal,
-            });
+            let response;
+            try {
+                response = await fetch(url, {
+                    headers,
+                    signal: abortController.signal,
+                    retry: 5,
+                    pause: 15,
+                });
+            }
+            catch (e) {
+                abortController.abort();
+                rej("chunk_downloading_error");
+                return;
+            }
             const stuckTimeout = setTimeout(() => {
                 abortController.abort();
                 rej("download_stuck");

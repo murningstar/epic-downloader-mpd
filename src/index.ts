@@ -6,7 +6,8 @@ import { exit, kill } from "process";
 /* Libs */
 import { PromisePool } from "@supercharge/promise-pool";
 import { chromium } from "playwright";
-import fetch from "node-fetch";
+// @ts-ignore
+import fetch from "node-fetch-retry";
 // @ts-ignore
 import mpdParser from "mpd-parser";
 // @ts-ignore
@@ -144,11 +145,13 @@ async function fetchAndPersist(
                 response = await fetch(url, {
                     headers,
                     signal: abortController.signal,
+                    retry: 5,
+                    pause: 15,
                 });
             } catch (e) {
-                abortController.abort()
+                abortController.abort();
                 rej("chunk_downloading_error");
-                return
+                return;
             }
             const stuckTimeout = setTimeout(() => {
                 abortController.abort();
@@ -171,13 +174,13 @@ async function fetchAndPersist(
 }
 print("Downloading segments...");
 await fetch(initUrl1080, { headers })
-    .then((response) => response.arrayBuffer())
-    .then((arrayBuffer) => Buffer.from(new Uint8Array(arrayBuffer)))
-    .then((buffer) => afs.writeFile(fullPath + "/init1080.mp4", buffer));
+    .then((response: any) => response.arrayBuffer())
+    .then((arrayBuffer: any) => Buffer.from(new Uint8Array(arrayBuffer)))
+    .then((buffer: any) => afs.writeFile(fullPath + "/init1080.mp4", buffer));
 await fetch(initUrlAudio, { headers })
-    .then((response) => response.arrayBuffer())
-    .then((arrayBuffer) => Buffer.from(new Uint8Array(arrayBuffer)))
-    .then((buffer) => afs.writeFile(fullPath + "/initAudio.mp4", buffer));
+    .then((response: any) => response.arrayBuffer())
+    .then((arrayBuffer: any) => Buffer.from(new Uint8Array(arrayBuffer)))
+    .then((buffer: any) => afs.writeFile(fullPath + "/initAudio.mp4", buffer));
 await new PromisePool()
     .for(segmentsUrls1080)
     .withConcurrency(50)
