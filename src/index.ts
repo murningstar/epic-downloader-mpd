@@ -107,7 +107,7 @@ const outputFolder = ".output";
 const folderName = new URL(url).pathname.split("/").at(-1);
 const fullPath = outputFolder + "/" + folderName;
 await afs.mkdir(path.resolve(fullPath), { recursive: true });
-print(`"${fullPath}/" directory created.`);
+print(`Created temp output directory: "${fullPath}/"`);
 
 const headers = {
     "User-Agent":
@@ -139,10 +139,17 @@ async function fetchAndPersist(
     const abortController = new AbortController();
     try {
         await new Promise(async (res, rej) => {
-            const response = await fetch(url, {
-                headers,
-                signal: abortController.signal,
-            });
+            let response;
+            try {
+                response = await fetch(url, {
+                    headers,
+                    signal: abortController.signal,
+                });
+            } catch (e) {
+                abortController.abort()
+                rej("chunk_downloading_error");
+                return
+            }
             const stuckTimeout = setTimeout(() => {
                 abortController.abort();
                 rej("download_stuck");
