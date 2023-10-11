@@ -231,5 +231,3 @@ shell.exec(`rm concatedVideo.mp4 concatedAudio.mp4`);
 
 print("Done!");
 print("Shutting down...");
-
-kill(0);
