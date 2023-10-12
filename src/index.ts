@@ -71,7 +71,7 @@ const populateManifestPromise = new Promise(async (res) => {
             "base64"
         ).toString("utf-8");
         parsedManifest = mpdParser.parse(decodedManifest);
-        // await afs.writeFile(path.resolve(".output/manifest.xml"), decodedManifest);
+        // await afs.writeFile(path.resolve("downloaded-videos/manifest.xml"), decodedManifest);
         res(undefined);
         return;
     });
@@ -104,7 +104,7 @@ const segmentsUrlsAudio: string[] = audioSegsData.segments.map(
 );
 
 /* Create output directory */
-const outputFolder = ".output";
+const outputFolder = "downloaded-videos";
 const folderName = new URL(url).pathname.split("/").at(-1);
 const fullPath = outputFolder + "/" + folderName;
 await afs.mkdir(path.resolve(fullPath), { recursive: true });
@@ -200,9 +200,9 @@ print("Concatenating...");
 
 // Concat video- init&segments into tempVideo.mp4
 shell.exec(
-    `cat .output/${folderName}/init1080.mp4 > tempVideo.mp4
+    `cat downloaded-videos/${folderName}/init1080.mp4 > tempVideo.mp4
     for i in $(seq 1 ${segmentsUrls1080.length}); do \
-        cat ".output/${folderName}/$i-video.m4s" >> tempVideo.mp4
+        cat "downloaded-videos/${folderName}/$i-video.m4s" >> tempVideo.mp4
         done`
 );
 // Refragmentation of video
@@ -211,9 +211,9 @@ shell.exec(
 );
 // Concat audio- init&segments into tempAudio.mp4
 shell.exec(
-    `cat .output/${folderName}/initAudio.mp4 > tempAudio.mp4
+    `cat downloaded-videos/${folderName}/initAudio.mp4 > tempAudio.mp4
     for i in $(seq 1 ${segmentsUrlsAudio.length}); do \
-        cat ".output/${folderName}/$i-audio.m4s" >> tempAudio.mp4
+        cat "downloaded-videos/${folderName}/$i-audio.m4s" >> tempAudio.mp4
         done`
 );
 // Refragmentation of audio
@@ -221,10 +221,10 @@ shell.exec(
     `ffmpeg -i tempAudio.mp4 -codec copy -movflags +faststart concatedAudio.mp4`
 );
 // Remove temp
-shell.exec(`rm tempVideo.mp4 tempAudio.mp4 && rm -rf .output/${folderName}/`);
+shell.exec(`rm tempVideo.mp4 tempAudio.mp4 && rm -rf downloaded-videos/${folderName}/`);
 // Mux tracks
 shell.exec(
-    `ffmpeg -i concatedVideo.mp4 -i concatedAudio.mp4 -c copy .output/${folderName}.mp4`
+    `ffmpeg -i concatedVideo.mp4 -i concatedAudio.mp4 -c copy downloaded-videos/${folderName}.mp4`
 );
 // Remove temp
 shell.exec(`rm concatedVideo.mp4 concatedAudio.mp4`);
